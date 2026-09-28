@@ -1,0 +1,19 @@
+{
+  "name": "mst-agents",
+  "version": "1.0.0",
+  "description": "MST Agents - Autonomous AI Agent Marketplace with MST Smart Contract Escrow",
+  "scripts": {
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:mst": "hardhat run scripts/deploy.js --network mstTestnet"
+  },
+  "keywords": ["ai-agents", "mst", "escrow", "smart-contract", "hackathon"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "ethers": "^6.13.0",
+    "hardhat": "2.22.18"
+  }
+}
