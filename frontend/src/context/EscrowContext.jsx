@@ -6,6 +6,7 @@ import MSTTaskEscrowABI from "../contracts/MSTTaskEscrowABI.json";
 const EscrowContext = createContext(null);
 
 export const MST_CONFIG = {
+
   name: "MST Testnet",
   chainId: 91562037,
   chainIdHex: "0x5752035",
@@ -15,7 +16,7 @@ export const MST_CONFIG = {
     name: "MST",
     symbol: "MST",
     decimals: 18,
-  },
+  }
 };
 
 export const EscrowProvider = ({ children }) => {
@@ -26,12 +27,34 @@ export const EscrowProvider = ({ children }) => {
   const [isWeb3Connected, setIsWeb3Connected] = useState(false);
   const [liveAccount, setLiveAccount] = useState("");
   const [contractAddress, setContractAddress] = useState(
-    "0x7a281898bFc46eBc215D3f1a0e98B8c8B3a4f9c"
+    "0x179a544c6ea90d8512002d3702ae59187793994F"
   );
   const [isExecutingSimulation, setIsExecutingSimulation] = useState(false);
+  const getContract = async () => {
+    if (!window.ethereum) {
+      throw new Error("No wallet found. Please install or open your Web3 wallet.");
+    }
 
+    const provider = new ethers.BrowserProvider(window.ethereum);
+
+    const network = await provider.getNetwork();
+
+    if (Number(network.chainId) !== MST_CONFIG.chainId) {
+      throw new Error("Please connect your wallet to MST Testnet.");
+    }
+
+    const signer = await provider.getSigner();
+
+    return new ethers.Contract(
+      contractAddress,
+      MSTTaskEscrowABI,
+      signer
+    );
+  };
   // Addresses
-  const requesterAddress = liveAccount || "0x14B289e223D9E9c0A175B8912349071fDe89e22";
+  const requesterAddress = liveAccount || "0x6278d13627F6cdDb85213E969E2145DBCF6e1C2D";
+  console.log("Requester address:", requesterAddress);
+  console.log("Is valid:", ethers.isAddress(requesterAddress));
   const currentWorker = agents[0]; // Default SecAuditor-v4
 
   // Calculate stats
@@ -92,88 +115,175 @@ export const EscrowProvider = ({ children }) => {
   const matchAgentForPrompt = (promptText = "") => {
     const text = promptText.toLowerCase();
 
-    if (
-      text.includes("verification") ||
-      text.includes("formal") ||
-      text.includes("audit") ||
-      text.includes("reentrancy") ||
-      text.includes("solidity") ||
-      text.includes("overflow") ||
-      text.includes("security")
-    ) {
+    // Keywords that describe each agent's expertise
+    const agentKeywords = {
+      "secauditor-v4": [
+        "solidity",
+        "smart contract",
+        "contract",
+        "audit",
+        "security",
+        "reentrancy",
+        "overflow",
+        "underflow",
+        "evm",
+        "bytecode",
+        "formal verification",
+        "invariant",
+        "vulnerability",
+        "exploit",
+      ],
+
+      "quantarbitrage-x": [
+        "arbitrage",
+        "dex",
+        "amm",
+        "mev",
+        "slippage",
+        "liquidity",
+        "routing",
+        "trading",
+        "cross-chain",
+        "order book",
+        "pool",
+        "price",
+      ],
+
+      "deepclean-data": [
+        "dataset",
+        "data",
+        "clean",
+        "cleaning",
+        "dedup",
+        "duplicate",
+        "embedding",
+        "etl",
+        "json",
+        "vector",
+        "logs",
+        "csv",
+        "database",
+      ],
+
+      "consensussync-agent": [
+        "consensus",
+        "validator",
+        "gossip",
+        "p2p",
+        "peer",
+        "fork",
+        "latency",
+        "network",
+        "block propagation",
+        "slashing",
+        "node",
+        "distributed",
+      ],
+
+      "zksolve-zk": [
+        "zk",
+        "zero knowledge",
+        "snark",
+        "zk-snark",
+        "circom",
+        "halo2",
+        "circuit",
+        "constraint",
+        "witness",
+        "r1cs",
+        "proof",
+        "formal proof",
+      ],
+    };
+
+    const scoredAgents = agents.map((agent) => {
+      const keywords = agentKeywords[agent.id] || [];
+
+      let keywordScore = 0;
+      const matchedKeywords = [];
+
+      // Match task description against agent expertise
+      keywords.forEach((keyword) => {
+        if (text.includes(keyword)) {
+          keywordScore += 10;
+          matchedKeywords.push(keyword);
+        }
+      });
+
+      // Small reputation bonus
+      const reputationScore = agent.rating * 2;
+
+      // Success-rate bonus
+      const successRate = parseFloat(
+        agent.stats.successRate.replace("%", "")
+      );
+
+      const successScore = successRate / 10;
+
+      // Overall score
+      const totalScore =
+        keywordScore +
+        reputationScore +
+        successScore;
+
       return {
-        agent: agents.find((a) => a.id === "secauditor-v4") || agents[0],
-        confidence: "98.4%",
-        reason: "Matched EVM formal verification, reentrancy analysis, and bytecode auditing specs.",
+        agent,
+        totalScore,
+        matchedKeywords,
+        keywordScore,
       };
+    });
+
+    // Sort highest score first
+    scoredAgents.sort((a, b) => b.totalScore - a.totalScore);
+
+    const winner = scoredAgents[0];
+
+    // Calculate confidence based on how strongly the task matched
+    const secondBest = scoredAgents[1];
+
+    let confidence = 75;
+
+    if (winner.keywordScore >= 40) {
+      confidence = 98;
+    } else if (winner.keywordScore >= 30) {
+      confidence = 95;
+    } else if (winner.keywordScore >= 20) {
+      confidence = 92;
+    } else if (winner.keywordScore >= 10) {
+      confidence = 86;
     }
 
-    if (
-      text.includes("arbitrage") ||
-      text.includes("dex") ||
-      text.includes("amm") ||
-      text.includes("mev") ||
-      text.includes("slippage") ||
-      text.includes("liquidity") ||
-      text.includes("routing")
-    ) {
-      return {
-        agent: agents.find((a) => a.id === "quantarbitrage-x") || agents[1],
-        confidence: "96.8%",
-        reason: "Matched high-frequency cross-AMM mathematical modeling and routing analysis.",
-      };
+    // If there is almost no keyword match, reduce confidence
+    if (winner.keywordScore === 0) {
+      confidence = 65;
     }
 
+    // Prevent confidence from being unrealistically high
     if (
-      text.includes("dataset") ||
-      text.includes("clean") ||
-      text.includes("dedup") ||
-      text.includes("embedding") ||
-      text.includes("etl") ||
-      text.includes("vector")
+      secondBest &&
+      winner.totalScore - secondBest.totalScore < 5
     ) {
-      return {
-        agent: agents.find((a) => a.id === "deepclean-data") || agents[2],
-        confidence: "95.2%",
-        reason: "Matched automated dataset deduplication and structural cleaning pipelines.",
-      };
+      confidence = Math.min(confidence, 82);
     }
 
-    if (
-      text.includes("consensus") ||
-      text.includes("gossip") ||
-      text.includes("p2p") ||
-      text.includes("fork") ||
-      text.includes("validator") ||
-      text.includes("latency")
-    ) {
-      return {
-        agent: agents.find((a) => a.id === "consensussync-agent") || agents[3],
-        confidence: "97.1%",
-        reason: "Matched distributed consensus validation and validator network stress testing.",
-      };
-    }
+    const reason =
+      winner.matchedKeywords.length > 0
+        ? `Matched ${winner.matchedKeywords
+          .slice(0, 4)
+          .join(", ")}. Agent reputation: ${winner.agent.rating}/5 with ${winner.agent.stats.successRate} success rate.`
+        : `No strong capability keyword detected. Selected ${winner.agent.name} using reputation and historical success rate.`;
 
-    if (
-      text.includes("zk") ||
-      text.includes("snark") ||
-      text.includes("circom") ||
-      text.includes("halo2") ||
-      text.includes("circuit") ||
-      text.includes("constraint")
-    ) {
-      return {
-        agent: agents.find((a) => a.id === "zksolve-zk") || agents[4],
-        confidence: "99.0%",
-        reason: "Matched Circom / Halo2 zero-knowledge constraint verification specifications.",
-      };
-    }
-
-    // Default fallback
     return {
-      agent: agents[0],
-      confidence: "91.0%",
-      reason: "General digital task matching. Verified agent SecAuditor-v4 has highest reputation.",
+      agent: winner.agent,
+      confidence: `${confidence.toFixed(1)}%`,
+      reason,
+      matchedKeywords: winner.matchedKeywords,
+      scores: scoredAgents.map((item) => ({
+        agentId: item.agent.id,
+        agentName: item.agent.name,
+        score: Number(item.totalScore.toFixed(2)),
+      })),
     };
   };
 
@@ -185,55 +295,129 @@ export const EscrowProvider = ({ children }) => {
     budget,
     deliverableFormat = "spec/output_artifacts.tar.gz",
   }) => {
-    const assignedAgent = agents.find((a) => a.id === agentId) || agents[0];
-    const budgetNum = parseFloat(budget) || 450.0;
-    const newNumericId = tasks.length + 1;
-    const newId = `task-89${40 + newNumericId}`;
+    try {
+      const assignedAgent =
+        agents.find((a) => a.id === agentId) || agents[0];
 
-    const randomHash = "0x" + Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join("") + "...d8e1";
+      console.log("Selected agent:", assignedAgent);
+      console.log("Agent address:", assignedAgent.address);
 
-    const newTask = {
-      id: newId,
-      numericId: newNumericId,
-      title: title || "Automated Agent Verification Task",
-      agentId: assignedAgent.id,
-      agentName: assignedAgent.name,
-      agentRole: assignedAgent.roleTagline,
-      agentRating: assignedAgent.rating,
-      budget: `${budgetNum.toFixed(2)} MST`,
-      budgetNum: budgetNum,
-      status: "PENDING_ACCEPTANCE", // Created state
-      time: "Just now",
-      contractAddress: contractAddress,
-      depositTx: randomHash,
-      requesterAddress: requesterAddress,
-      workerAddress: assignedAgent.address,
-      description: description || "Execute digital task according to provided specifications.",
-      deliverableFormat: deliverableFormat,
-      checksPassed: "0/2 CHECKS PASSED",
-      deliverablePayload: "",
-      timeline: [
+
+
+
+
+      const budgetNum = parseFloat(budget);
+
+      if (!budgetNum || budgetNum <= 0) {
+        throw new Error("Budget must be greater than 0.");
+      }
+
+      const contract = await getContract();
+
+      const budgetWei = ethers.parseEther(budgetNum.toString());
+
+      const taskMetadata = JSON.stringify({
+        title: title || "Automated Agent Verification Task",
+        description:
+          description ||
+          "Execute digital task according to provided specifications.",
+        deliverableFormat,
+        agentId: assignedAgent.id,
+      });
+
+      console.log("Creating blockchain transaction...");
+
+      console.log("BEFORE CONTRACT CALL");
+      console.log("Contract:", contractAddress);
+      console.log("Worker:", assignedAgent.address);
+      console.log("Task metadata:", taskMetadata);
+      console.log("Budget:", budgetWei.toString());
+      console.log(
+        "Test worker valid:",
+        ethers.isAddress("0x6278d13627F6cdDb85213E969E2145DBCF6e1C2D")
+      );
+      console.log("Worker valid:", ethers.isAddress(assignedAgent.address));
+      console.log("Contract valid:", ethers.isAddress(contractAddress));
+      const tx = await contract.createTask(
+        assignedAgent.address,
+        taskMetadata,
         {
-          id: `step-${Date.now()}-2`,
-          title: "Escrow deposit confirmed",
-          desc: `${budgetNum.toFixed(2)} MST successfully deposited in MST smart contract escrow. Tx: ${randomHash}`,
-          time: "Just now",
-          status: "done",
-        },
-        {
-          id: `step-${Date.now()}-1`,
-          title: "Task created by requester",
-          desc: `Created from UI with budget ${budgetNum.toFixed(2)} MST assigned to ${assignedAgent.name}.`,
-          time: "Just now",
-          status: "done",
-        },
-      ],
-    };
+          value: budgetWei,
+        }
+      );
 
-    setTasks((prev) => [newTask, ...prev]);
-    setWalletBalance((prev) => Math.max(0, prev - budgetNum));
+      console.log("AFTER CONTRACT CALL");
 
-    return newTask;
+      console.log("Transaction sent:", tx.hash);
+
+      const receipt = await tx.wait();
+
+      console.log("Transaction confirmed:", receipt.hash);
+
+      const taskCount = await contract.getTaskCount();
+      const numericId = Number(taskCount);
+
+      const newId = `task-89${40 + numericId}`;
+
+      const newTask = {
+        id: newId,
+        numericId: numericId,
+        title: title || "Automated Agent Verification Task",
+        agentId: assignedAgent.id,
+        agentName: assignedAgent.name,
+        agentRole: assignedAgent.roleTagline,
+        agentRating: assignedAgent.rating,
+        budget: `${budgetNum.toFixed(2)} MST`,
+        budgetNum: budgetNum,
+        status: "PENDING_ACCEPTANCE",
+        time: "Just now",
+        contractAddress: contractAddress,
+        depositTx: tx.hash,
+        requesterAddress: requesterAddress,
+        workerAddress: assignedAgent.address,
+        description:
+          description ||
+          "Execute digital task according to provided specifications.",
+        deliverableFormat: deliverableFormat,
+        checksPassed: "0/2 CHECKS PASSED",
+        deliverablePayload: "",
+
+        timeline: [
+          {
+            id: `step-${Date.now()}-2`,
+            title: "Escrow deposit confirmed",
+            desc: `${budgetNum.toFixed(
+              2
+            )} MST successfully deposited in MST smart contract escrow. Tx: ${tx.hash
+              }`,
+            time: "Just now",
+            status: "done",
+          },
+          {
+            id: `step-${Date.now()}-1`,
+            title: "Task created by requester",
+            desc: `Created on MST Testnet with budget ${budgetNum.toFixed(
+              2
+            )} MST assigned to ${assignedAgent.name}.`,
+            time: "Just now",
+            status: "done",
+          },
+        ],
+      };
+
+      setTasks((prev) => [newTask, ...prev]);
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      console.log("Requester address:", requesterAddress);
+      const balance = await provider.getBalance(requesterAddress);
+
+      setWalletBalance(Number(ethers.formatEther(balance)));
+
+      return newTask;
+    } catch (error) {
+      console.error("Create task failed:", error);
+      throw error;
+    }
   };
 
   // Flow: 2. Accept Task

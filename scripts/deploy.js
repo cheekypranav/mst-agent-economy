@@ -18,7 +18,7 @@ async function main() {
   const contractAddress = await escrow.getAddress();
   console.log(`MSTTaskEscrow deployed successfully!`);
   console.log(`Contract Address: ${contractAddress}`);
-  console.log(`Verify on Explorer: https://mstscan.com/address/${contractAddress}`);
+  console.log(`Verify on Explorer: https://testnet.mstscan.com/address/${contractAddress}`);
 
   return contractAddress;
 }

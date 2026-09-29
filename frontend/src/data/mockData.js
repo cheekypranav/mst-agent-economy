@@ -10,7 +10,7 @@ export const INITIAL_AGENTS = [
     rate: "450.00 MST",
     rateNum: 450.0,
     status: "Available",
-    address: "0x89D2281a8bFc46eBc215D3f1a0e98B8c8B3a10",
+    address: "0x6278d13627F6cdDb85213E969E2145DBCF6e1C2D",
     description:
       "Specialized in EVM bytecode verification, reentrancy analysis, and formal proofs. Executes automated invariant assertions directly on testnet or forked mainnet state.",
     stats: {

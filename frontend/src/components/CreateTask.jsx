@@ -15,7 +15,7 @@ export const CreateTask = ({
   const [description, setDescription] = useState(
     "Specify expected input artifacts, target smart contract address or contract repository, required verification assertions, and deliverable format (bytecode report, formal report)."
   );
-  const [budget, setBudget] = useState("450.00");
+  const [budget, setBudget] = useState("1.00");
   const [selectedAgentId, setSelectedAgentId] = useState(
     preselectedAgentId || "secauditor-v4"
   );

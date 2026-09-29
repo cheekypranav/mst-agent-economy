@@ -8,12 +8,21 @@
     "deploy:local": "hardhat run scripts/deploy.js --network localhost",
     "deploy:mst": "hardhat run scripts/deploy.js --network mstTestnet"
   },
-  "keywords": ["ai-agents", "mst", "escrow", "smart-contract", "hackathon"],
+  "keywords": [
+    "ai-agents",
+    "mst",
+    "escrow",
+    "smart-contract",
+    "hackathon"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "ethers": "^6.13.0",
-    "hardhat": "2.22.18"
+    "hardhat": "^2.29.1"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.4"
   }
 }
